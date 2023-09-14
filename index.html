@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="cs">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Získání GPS polohy</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+</head>
+
+<body>
+    <h1>Získání GPS polohy pomocí 6 znaků</h1>
+    <input type="text" id="input" placeholder="Zadejte 6 znaků">
+    <button onclick="handleInput()">Zobrazit na mapě</button>
+    <div id="map" style="width: 100%; height: 500px;"></div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        const map = L.map('map').setView([50, 15], 6);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        map.on('click', function (e) {
+            const { lat, lng } = e.latlng;
+            const characters = getCharactersFromGeolocation({ latitude: lat, longitude: lng });
+            document.getElementById('input').value = characters;
+        });
+
+        function handleInput() {
+            const input = document.getElementById('input').value;
+            const { latitude, longitude } = getGeolocationFromCharacters(input);
+            L.marker([latitude, longitude]).addTo(map);
+            map.setView([latitude, longitude], 15);
+        }
+
+        const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+        function getGeolocationFromCharacters(characters) {
+            if (characters.length != 6) {
+                alert('Vstup musí mít 6 znaků.');
+                return;
+            }
+
+            let latitudeFraction = charset.indexOf(characters[0]) * charset.length * charset.length + charset.indexOf(characters[1]) * charset.length + charset.indexOf(characters[2]);
+            let longitudeFraction = charset.indexOf(characters[3]) * charset.length * charset.length + charset.indexOf(characters[4]) * charset.length + charset.indexOf(characters[5]);
+
+            const latitude = (latitudeFraction / (charset.length ** 3)) * 180 - 90;
+            const longitude = (longitudeFraction / (charset.length ** 3)) * 360 - 180;
+
+            return {
+                latitude,
+                longitude
+            };
+        }
+
+        function getCharactersFromGeolocation(position) {
+            let latitudeFraction = Math.round(((position.latitude + 90) / 180) * (charset.length ** 3));
+            let longitudeFraction = Math.round(((position.longitude + 180) / 360) * (charset.length ** 3));
+
+            const latChar1 = charset[Math.floor(latitudeFraction / (charset.length * charset.length))];
+            latitudeFraction %= (charset.length * charset.length);
+            const latChar2 = charset[Math.floor(latitudeFraction / charset.length)];
+            const latChar3 = charset[latitudeFraction % charset.length];
+
+            const lonChar1 = charset[Math.floor(longitudeFraction / (charset.length * charset.length))];
+            longitudeFraction %= (charset.length * charset.length);
+            const lonChar2 = charset[Math.floor(longitudeFraction / charset.length)];
+            const lonChar3 = charset[longitudeFraction % charset.length];
+
+            return latChar1 + latChar2 + latChar3 + lonChar1 + lonChar2 + lonChar3;
+        }
+    </script>
+</body>
+
+</html>
