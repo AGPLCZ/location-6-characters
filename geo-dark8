@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Mapbox Location Finder</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css" rel="stylesheet" />
+    <style>
+        /* Specify the size of the map */
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            z-index: -10;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Mapbox Location Finder</h1>
+    <input type="text" id="searchInput" placeholder="Zadejte 8 znaků">
+    <button onclick="searchLocation()">Najít místo</button>
+    <div id="map"></div>
+
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoiYWdwbCIsImEiOiJjbG1rY3lqdWswMWliMnJuenpndHpnMmh6In0.ZAg3F_H8uxL9jC5h8f41Iw';
+
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/dark-v10',
+            center: [15, 50],
+            zoom: 6,
+        });
+
+        const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+        function getGeolocationFromCharacters(characters) {
+            if (characters.length != 8) {
+                return null;
+            }
+
+            let latitudeFraction = charset.indexOf(characters[0]) * charset.length ** 3 + charset.indexOf(characters[1]) * charset.length ** 2 + charset.indexOf(characters[2]) * charset.length + charset.indexOf(characters[3]);
+            let longitudeFraction = charset.indexOf(characters[4]) * charset.length ** 3 + charset.indexOf(characters[5]) * charset.length ** 2 + charset.indexOf(characters[6]) * charset.length + charset.indexOf(characters[7]);
+
+            const latitude = (latitudeFraction / (charset.length ** 4)) * 180 - 90;
+            const longitude = (longitudeFraction / (charset.length ** 4)) * 360 - 180;
+
+            return {
+                latitude,
+                longitude
+            };
+        }
+
+        function searchLocation() {
+            const searchInput = document.getElementById('searchInput').value;
+            if (searchInput.length === 8) {
+                const geolocation = getGeolocationFromCharacters(searchInput);
+                if (geolocation) {
+                    const {
+                        latitude,
+                        longitude
+                    } = geolocation;
+                    new mapboxgl.Marker()
+                        .setLngLat([longitude, latitude])
+                        .addTo(map);
+                    map.flyTo({
+                        center: [longitude, latitude],
+                        zoom: 15
+                    });
+                } else {
+                    alert('Nepodařilo se převést řetězec na geolokaci.');
+                }
+            } else {
+                alert('Vstup musí mít právě 8 znaků.');
+            }
+        }
+
+        map.on('click', function(e) {
+            const {
+                lat,
+                lng
+            } = e.lngLat;
+            const characters = getCharactersFromGeolocation({
+                latitude: lat,
+                longitude: lng
+            });
+            document.getElementById('searchInput').value = characters;
+        });
+
+        function getCharactersFromGeolocation(position) {
+            let latitudeFraction = Math.round(((position.latitude + 90) / 180) * (charset.length ** 4));
+            let longitudeFraction = Math.round(((position.longitude + 180) / 360) * (charset.length ** 4));
+
+            const latChar1 = charset[Math.floor(latitudeFraction / (charset.length ** 3))];
+            latitudeFraction %= (charset.length ** 3);
+            const latChar2 = charset[Math.floor(latitudeFraction / (charset.length ** 2))];
+            latitudeFraction %= (charset.length ** 2);
+            const latChar3 = charset[Math.floor(latitudeFraction / charset.length)];
+            const latChar4 = charset[latitudeFraction % charset.length];
+
+            const lonChar1 = charset[Math.floor(longitudeFraction / (charset.length ** 3))];
+            longitudeFraction %= (charset.length ** 3);
+            const lonChar2 = charset[Math.floor(longitudeFraction / (charset.length ** 2))];
+            longitudeFraction %= (charset.length ** 2);
+            const lonChar3 = charset[Math.floor(longitudeFraction / charset.length)];
+            const lonChar4 = charset[longitudeFraction % charset.length];
+
+            return latChar1 + latChar2 + latChar3 + latChar4 + lonChar1 + lonChar2 + lonChar3 + lonChar4;
+        }
+    </script>
+</body>
+
+</html>
