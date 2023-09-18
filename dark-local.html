@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Bitcoinérky</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css" rel="stylesheet" />
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
+    <style>
+        /* Specify the size of the map */
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            z-index: -10;
+        }
+
+        .container {
+            display: flex;
+            align-items: center;
+            /* Vertikální vystředění */
+            justify-content: center;
+            /* Horizontální vystředění, pokud to chcete */
+            height: 20vh;
+            /* Výška kontejneru - můžete upravit dle potřeby */
+
+            background-color: rgba(58, 58, 58, 0.855);
+            color: #fff;
+            margin-top: auto;
+            margin-bottom: auto;
+            max-width: 1520px;
+
+        }
+
+        .prvky {
+            margin-right: 30px;
+
+
+
+        }
+
+        .prvky button {
+            margin-left: 10px;
+
+        }
+
+        .prvky input {
+            margin-left: 10px;
+
+
+        }
+
+        .searchInput {
+            color: rgb(0, 0, 0);
+            opacity: 1;
+        }
+
+        .addressInput {
+
+            color: rgb(0, 0, 0);
+            opacity: 1;
+
+        }
+
+
+        .prvky h1 {
+            margin-left: 0px;
+            margin-bottom: 0;
+            padding: 0px;
+            font-size: 1.5em;
+
+        }
+
+        .prvky h2 {
+            margin-left: 0px;
+            margin-top: 0px;
+            margin-bottom: 0;
+            padding: 0px;
+            font-size: 0.9em;
+
+        }
+
+
+        /* Pro průhledné inputy s bílým textem a placeholderem */
+        .form-control.bg-transparent::placeholder {
+            color: rgb(241, 241, 241);
+            opacity: 0.7;
+            /* Aby byl placeholder světlejší než skutečný text */
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+
+    <!-- Kontejner pro hlavní obsah -->
+    <div class="container-fluid text-white py-4">
+        <div class="container">
+            <div class="d-flex align-items-center flex-wrap justify-content-center">
+
+                <!-- Logo -->
+                <div class="me-3 prvky">
+                    <img src="vm.png" alt="Moje logo" class="img-fluid" style="max-width: 50px;">
+                </div>
+
+                <!-- Nadpisy -->
+                <div class="me-3 prvky">
+                    <h1 class="text-danger">Bitcoinérky</h1>
+                    <h2>sex za bitcoin</h2>
+                </div>
+
+                <!-- Vyhledávání podle kódu -->
+                <div class="d-flex align-items-center me-3 prvky">
+                    <label for="searchInput" class="form-label me-2" style=" min-width: 120px;">Lokalizační kód</label>
+                    <input type="text" id="searchInput" placeholder="Zadejte 8 znaků"
+                        class="form-control bg-transparent text-white border-light me-2">
+                    <button onclick="searchLocation()" class="btn btn-danger">Hledat</button>
+                </div>
+
+                <!-- Vyhledávání podle adresy -->
+                <div class="d-flex align-items-center me-3 prvky">
+                    <label for="addressInput" class="form-label me-2">Adresa</label>
+                    <input type="text" id="addressInput" placeholder="Zadejte adresu"
+                        class="form-control bg-transparent text-white border-light me-2">
+                    <button onclick="searchByAddress()" class="btn btn-danger">Hledat</button>
+                </div>
+
+                <!-- Lokalizace -->
+                <div class="d-flex align-items-center me-3 prvky">
+                    <input type="checkbox" id="addLocationCheckbox" style="margin-right: 10px;" class="me-1">
+                    <label for="addLocationCheckbox" class="form-label" style="padding-top: 5px;">Zapnout lokalizování</label>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Návrhy -->
+    <div class="container mt-3" style="background: rgba(0, 0, 0, 0);"">
+        <div id="suggestions" class="border"
+            style="background: rgba(0, 0, 0, 0.445); max-width: 350px; max-height: 450px; overflow-y: auto;"></div>
+    </div>
+
+
+
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoiYWdwbCIsImEiOiJjbG1rY3lqdWswMWliMnJuenpndHpnMmh6In0.ZAg3F_H8uxL9jC5h8f41Iw';
+
+        const presetLocations = [
+            {
+                name: "Adéla",
+                address: "Brno 3",
+                web: "#",
+                tel: "735 528 343",
+                overeni: "1x",
+                hodnoceni_s: "1x",
+                hodnoceni_n: "1x",
+                locationCode: "WgKHHFR7"
+            }
+        ];
+
+        let popup = new mapboxgl.Popup({
+            closeButton: false,
+            closeOnClick: true
+        });
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/dark-v10',
+            center: [15, 50],
+            zoom: 6,
+        });
+
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+
+
+        const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+
+        function addPresetLocationsToMap() {
+            for (let location of presetLocations) {
+                let geoCoordinates = getGeolocationFromCharacters(location.locationCode);
+                console.log(geoCoordinates);
+
+                const popupContent = new mapboxgl.Popup({ offset: 25 })
+                    .setHTML(`
+                <div><span style="font-weight: bold;">Jméno: </span>${location.name}</div>
+                <div><span style="font-weight: bold;">Lokalizace místa: </span>${location.locationCode}</div>
+                <div><span style="font-weight: bold;">Adresa místa: </span>${location.address}</div>
+                <div><span style="font-weight: bold;">Web: </span><a href="${location.web}" target="_blank">${location.web}</a></div>
+                <div><span style="font-weight: bold;">Tel. číslo: </span>${location.tel}</div>
+                <div><span style="font-weight: bold;">Ověřeno přes SMS: </span>${location.overeni}</div>
+                <div><span style="font-weight: bold;">Spokojen: </span>${location.hodnoceni_s}</div>
+                <div><span style="font-weight: bold;">Nepokojen: </span>${location.hodnoceni_n}</div>
+            `);
+
+                new mapboxgl.Marker()
+                    .setLngLat([geoCoordinates.longitude, geoCoordinates.latitude])
+                    .setPopup(popupContent)
+                    .addTo(map);
+            }
+        }
+
+
+        map.on('click', function (e) {
+            const addLocationChecked = document.getElementById('addLocationCheckbox').checked;
+
+            if (!addLocationChecked) {
+                return; // ukončit funkci, pokud zaškrtávací políčko není zaškrtnuto
+            }
+
+            const { lat, lng } = e.lngLat;
+
+            getAddressFromCoordinates(lat, lng, function (address) {
+                if (address) {
+                    const characters = getCharactersFromGeolocation({
+                        latitude: lat,
+                        longitude: lng
+                    });
+                    const popupContent = `<div style="">
+               
+                        <div><span style="font-weight: bold;">Adresa místa:</span> ${address}</div>
+                        <div><span style="font-weight: bold;">Označení místa:</span>
+                     <span id="locationCode" style="cursor:pointer; text-decoration: underline;">${characters}</span></div>
+                     <div style="text-decoration: underline;"><a href="#">Přidat místo</a></div>
+                        </div>
+            `;
+                    popup.setLngLat([lng, lat])
+                        .setHTML(popupContent)
+                        .addTo(map);
+
+                    document.getElementById('searchInput').value = characters;
+                } else {
+                    alert('Nepodařilo se získat adresu.');
+                }
+            });
+        });
+
+
+
+
+
+        addPresetLocationsToMap(); // Zobrazí přednastavené body na mapě
+
+
+
+
+
+        function getGeolocationFromCharacters(characters) {
+            if (characters.length != 8) {
+                return null;
+            }
+
+            let latitudeFraction = charset.indexOf(characters[0]) * charset.length ** 3 + charset.indexOf(characters[1]) * charset.length ** 2 + charset.indexOf(characters[2]) * charset.length + charset.indexOf(characters[3]);
+            let longitudeFraction = charset.indexOf(characters[4]) * charset.length ** 3 + charset.indexOf(characters[5]) * charset.length ** 2 + charset.indexOf(characters[6]) * charset.length + charset.indexOf(characters[7]);
+
+            const latitude = (latitudeFraction / (charset.length ** 4)) * 180 - 90;
+            const longitude = (longitudeFraction / (charset.length ** 4)) * 360 - 180;
+
+            return {
+                latitude,
+                longitude
+            };
+        }
+        function getAddressFromCoordinates(lat, lon, callback) {
+            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lon},${lat}.json?access_token=pk.eyJ1IjoiYWdwbCIsImEiOiJjbG1rY3lqdWswMWliMnJuenpndHpnMmh6In0.ZAg3F_H8uxL9jC5h8f41Iw`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.features && data.features.length) {
+                        const address = data.features[0].place_name;
+                        callback(address);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching address:', error);
+                    callback(null);
+                });
+        }
+
+        // Funkce, která zavře našeptávač
+        function closeSuggestions() {
+            document.getElementById('suggestions').innerHTML = '';
+        }
+
+        // Funkce pro našeptávač adres
+        function suggestAddresses() {
+            const input = document.getElementById('addressInput').value;
+            if (!input) {
+                closeSuggestions();
+                return;
+            }
+
+            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(input)}.json?limit=5&access_token=pk.eyJ1IjoiYWdwbCIsImEiOiJjbG1rY3lqdWswMWliMnJuenpndHpnMmh6In0.ZAg3F_H8uxL9jC5h8f41Iw`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    let suggestionsHtml = '';
+                    if (data && data.features && data.features.length) {
+                        for (let feature of data.features) {
+                            suggestionsHtml += `<div onclick="selectSuggestion('${feature.place_name}', [${feature.geometry.coordinates}])">${feature.place_name}</div>`;
+                        }
+                    } else {
+                        suggestionsHtml = '<div>No suggestions found</div>';
+                    }
+                    document.getElementById('suggestions').innerHTML = suggestionsHtml;
+                })
+                .catch(error => {
+                    console.error('Error fetching suggestions:', error);
+                });
+        }
+
+
+
+        document.addEventListener('DOMContentLoaded', (event) => {
+            document.getElementById('addressInput').addEventListener('keyup', suggestAddresses);
+            document.querySelector('button').addEventListener('click', searchByAddress);
+
+            // Skrýt našeptávač, když je kliknuto mimo input a našeptávač
+            document.addEventListener('click', function (event) {
+                const input = document.getElementById('addressInput');
+                const suggestions = document.getElementById('suggestions');
+
+                if (event.target !== input && event.target !== suggestions && !suggestions.contains(event.target)) {
+                    closeSuggestions();
+                }
+            });
+
+
+
+        });
+
+        function selectSuggestion(name, coordinates) {
+            document.getElementById('addressInput').value = name;
+            document.getElementById('suggestions').innerHTML = '';
+            new mapboxgl.Marker()
+                .setLngLat(coordinates)
+                .addTo(map);
+            map.flyTo({
+                center: coordinates,
+                zoom: 18
+            });
+        }
+
+
+        function searchByAddress() {
+            const addressInput = document.getElementById('addressInput').value;
+            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(addressInput)}.json?access_token=pk.eyJ1IjoiYWdwbCIsImEiOiJjbG1rY3lqdWswMWliMnJuenpndHpnMmh6In0.ZAg3F_H8uxL9jC5h8f41Iw`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.features && data.features.length) {
+                        const location = data.features[0].geometry.coordinates;
+                        new mapboxgl.Marker()
+                            .setLngLat(location)
+                            .addTo(map);
+                        map.flyTo({
+                            center: location,
+                            zoom: 18
+                        });
+                    } else {
+                        alert('Nepodařilo se najít adresu.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching location:', error);
+                    alert('Chyba při vyhledávání adresy.');
+                });
+        }
+
+        function searchLocation() {
+            const searchInput = document.getElementById('searchInput').value;
+            if (searchInput.length === 8) {
+                const geolocation = getGeolocationFromCharacters(searchInput);
+                if (geolocation) {
+                    const {
+                        latitude,
+                        longitude
+                    } = geolocation;
+                    new mapboxgl.Marker()
+                        .setLngLat([longitude, latitude])
+                        .addTo(map);
+                    map.flyTo({
+                        center: [longitude, latitude],
+                        zoom: 18
+                    });
+                } else {
+                    alert('Nepodařilo se převést řetězec na geolokaci.');
+                }
+            } else {
+                alert('Vstup musí mít právě 8 znaků.');
+            }
+        }
+
+        popup.on('open', function () {
+            const locationCodeElement = document.getElementById('locationCode');
+            locationCodeElement.addEventListener('click', function () {
+                copyToClipboard(locationCodeElement.textContent);
+                alert('Poloha zkopírována do schránky!');
+            });
+        });
+
+
+
+
+        function getCharactersFromGeolocation(position) {
+            let latitudeFraction = Math.round(((position.latitude + 90) / 180) * (charset.length ** 4));
+            let longitudeFraction = Math.round(((position.longitude + 180) / 360) * (charset.length ** 4));
+
+            const latChar1 = charset[Math.floor(latitudeFraction / (charset.length ** 3))];
+            latitudeFraction %= (charset.length ** 3);
+            const latChar2 = charset[Math.floor(latitudeFraction / (charset.length ** 2))];
+            latitudeFraction %= (charset.length ** 2);
+            const latChar3 = charset[Math.floor(latitudeFraction / charset.length)];
+            const latChar4 = charset[latitudeFraction % charset.length];
+
+            const lonChar1 = charset[Math.floor(longitudeFraction / (charset.length ** 3))];
+            longitudeFraction %= (charset.length ** 3);
+            const lonChar2 = charset[Math.floor(longitudeFraction / (charset.length ** 2))];
+            longitudeFraction %= (charset.length ** 2);
+            const lonChar3 = charset[Math.floor(longitudeFraction / charset.length)];
+            const lonChar4 = charset[longitudeFraction % charset.length];
+
+            return latChar1 + latChar2 + latChar3 + latChar4 + lonChar1 + lonChar2 + lonChar3 + lonChar4;
+        }
+    </script>
+</body>
+
+</html>
